@@ -1,21 +1,56 @@
-import { supabase } from '@/lib/supabase'
+// src/app/tender/[id]/page.tsx
+import { createClient } from "@supabase/supabase-js"
 
-export default async function TenderPage({ params }: { params: { id: string } }) {
-  const { data: tender } = await supabase.from('tenders').select('*').eq('id', params.id).single()
+export default async function TenderPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
 
-  if (!tender) {
-    return <main style={{maxWidth:800,margin:'40px auto'}}><p>Not found.</p></main>
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE! // ⚠️ server-only
+  )
+
+  const { data: tender, error } = await supabase
+    .from("tenders")
+    .select("*")
+    .eq("source_id", id)
+    .single()
+
+  if (error || !tender) {
+    return (
+      <main className="p-6">
+        <h1 className="text-xl font-bold">Tender not found</h1>
+        <p className="text-gray-600">{error?.message}</p>
+      </main>
+    )
   }
 
   return (
-    <main style={{maxWidth:800,margin:'40px auto'}}>
-      <h2>{tender.title}</h2>
-      <p><b>Buyer:</b> {tender.buyer || '—'} • <b>Country:</b> {tender.country || '—'}</p>
-      <p><b>Published:</b> {tender.publication_date || '—'} • <b>Deadline:</b> {tender.deadline || '—'}</p>
-      <p><b>Budget:</b> {tender.budget ? `${tender.currency || ''} ${tender.budget}` : '—'}</p>
-      <p><b>AI summary:</b> {tender.ai_summary || '—'}</p>
-      {tender.raw_url && <p><a href={tender.raw_url} target="_blank">Open official notice</a></p>}
-      {tender.pdf_url && <p><a href={tender.pdf_url} target="_blank">Download documents</a></p>}
+    <main className="p-6 space-y-4">
+      <h1 className="text-2xl font-bold">{tender.title}</h1>
+      <p className="text-gray-600">{tender.country}</p>
+      <p>{tender.description}</p>
+
+      {tender.ai_summary && (
+        <p className="italic text-gray-700">💡 {tender.ai_summary}</p>
+      )}
+
+      <div className="text-sm text-gray-500">
+        <p>Published: {tender.publication_date}</p>
+        {tender.deadline && <p>Deadline: {tender.deadline}</p>}
+      </div>
+
+      <a
+        href={tender.raw_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-block text-blue-600 hover:underline"
+      >
+        View Original Notice →
+      </a>
     </main>
   )
 }
