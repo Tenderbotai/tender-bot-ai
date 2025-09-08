@@ -1,13 +1,21 @@
-// lib/supabaseClient.ts
-import { createClient } from "@supabase/supabase-js";
+// src/lib/supabase.ts
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-export function getSupabaseClient() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_ANON_KEY;
+let supabaseInstance: SupabaseClient | null = null;
 
-  if (!url || !key) {
-    throw new Error("Missing Supabase environment variables");
+export function getSupabaseClient(): SupabaseClient {
+  if (supabaseInstance) return supabaseInstance;
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url) {
+    throw new Error("Missing environment variable: NEXT_PUBLIC_SUPABASE_URL");
+  }
+  if (!key) {
+    throw new Error("Missing environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY");
   }
 
-  return createClient(url, key);
+  supabaseInstance = createClient(url, key);
+  return supabaseInstance;
 }
