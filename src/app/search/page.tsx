@@ -1,16 +1,36 @@
 // src/app/search/page.tsx
-import { Suspense } from "react"
+import { createClient } from "@supabase/supabase-js"
 
-interface SearchPageProps {
-  searchParams?: Record<string, string | string[] | undefined>
-}
+export default async function SearchPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  // ✅ Next.js 15+ passes searchParams as a Promise
+  const params = await searchParams
+  const q = typeof params.q === "string" ? params.q : undefined
+  const country = typeof params.country === "string" ? params.country : undefined
 
-export default function SearchPage({ searchParams }: SearchPageProps) {
-  // Safely extract query params
-  const q =
-    typeof searchParams?.q === "string" ? searchParams.q : undefined
-  const country =
-    typeof searchParams?.country === "string" ? searchParams.country : undefined
+  // ✅ Supabase server-side client
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE! // ⚠️ service role: server only
+  )
+
+  // Build query
+  let query = supabase.from("tenders").select("*").order("publication_date", { ascending: false }).limit(20)
+
+  if (q) {
+    query = query.ilike("title", `%${q}%`)
+  }
+  if (country) {
+    query = query.eq("country", country)
+  }
+
+  const { data: tenders, error } = await query
+  if (error) {
+    console.error("Supabase query error:", error.message)
+  }
 
   return (
     <main className="p-6">
@@ -48,20 +68,32 @@ export default function SearchPage({ searchParams }: SearchPageProps) {
         </button>
       </form>
 
-      {/* Results (placeholder, replace with Supabase query later) */}
-      <Suspense fallback={<p>Loading results...</p>}>
-        <div className="space-y-4">
-          {q || country ? (
-            <div className="p-4 border rounded-lg">
-              <h2 className="text-lg font-semibold">Example Tender</h2>
-              <p>Showing results for: {q || "—"}</p>
-              <p>Country filter: {country || "—"}</p>
+      {/* Results */}
+      <div className="space-y-4">
+        {tenders && tenders.length > 0 ? (
+          tenders.map((tender) => (
+            <div key={tender.source + tender.source_id} className="p-4 border rounded-lg">
+              <h2 className="text-lg font-semibold">{tender.title}</h2>
+              <p className="text-sm text-gray-600">{tender.country}</p>
+              <p className="mt-2">{tender.description}</p>
+              {tender.ai_summary && (
+                <p className="mt-2 italic text-gray-700">💡 {tender.ai_summary}</p>
+              )}
+              <a
+                href={tender.raw_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-block text-blue-600 hover:underline"
+              >
+                View Notice →
+              </a>
             </div>
-          ) : (
-            <p className="text-gray-500">Enter a search above.</p>
-          )}
-        </div>
-      </Suspense>
+          ))
+        ) : (
+          <p className="text-gray-500">No tenders found. Try a different search.</p>
+        )}
+      </div>
     </main>
   )
 }
+
